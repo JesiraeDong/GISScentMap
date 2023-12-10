@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no"/>
+  <title>CSVLayer with Dynamic Unique Value Renderer and Legend</title>
+  <link rel="stylesheet" href="https://js.arcgis.com/3.45/esri/css/esri.css">
+  <style>
+    html, body, {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: "Trebuchet MS";
+    }
+    #map{
+      height:100%;
+      width:100%;
+      position:absolute;
+      top:0;
+      left:0;
+    }
+    #legendDiv{
+      position:fixed;
+      bottom:10px;
+      right:10px;
+      max-height:200px;
+      width:250px;
+      overflow-y: auto;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding:10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+    }
+  </style>
+  <script src="https://js.arcgis.com/3.45/"></script>
+  <script>
+    var map, csv;
+
+    require([
+      "esri/map",
+      "esri/dijit/Legend",
+      "esri/dijit/OverviewMap",
+      "esri/layers/CSVLayer",
+      "esri/Color",
+      "esri/symbols/SimpleMarkerSymbol",
+      "esri/renderers/UniqueValueRenderer",
+      "esri/dijit/Scalebar",
+      "esri/dijit/InfoWindowLite",
+      "esri/InfoTemplate",
+      "esri/config",
+      "dojo/_base/array",
+      "dojo/dom-construct",
+      "dojo/domReady!"
+    ], function(
+      Map, Legend, OverviewMap, CSVLayer, Color, SimpleMarkerSymbol, UniqueValueRenderer, Scalebar, InfoWindowLite, InfoTemplate,
+      esriConfig, arrayUtils, domConstruct
+    ) {
+
+      // CORS configuration
+      esriConfig.defaults.io.corsEnabledServers.push("earthquake.usgs.gov");
+
+      map = new Map("map", {
+        basemap: "dark-gray", // Changed to dark-gray for black base
+        center: [ -98.5795, 39.8283 ],
+        zoom: 5,
+        minZoom: 3
+      });
+      
+      csv = new CSVLayer("./geocoded_by_geoapify-11_6_2023, 6_11_51 AM.csv", {
+        outFields: ["*"] // Make sure all fields are available for the renderer
+      });
+
+      // Function to create a color based on a string
+      function stringToColor(str) {
+        var hash = 0;
+        for (var i = 0; i < str.length; i++) {
+          hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        var color = new Color([(hash & 0xFF0000) >> 16, (hash & 0x00FF00) >> 8, hash & 0x0000FF, 0.5]);
+        return color;
+      }
+
+      var uniqueValueInfos = [];
+
+      // Listen for CSVLayer's update-end event to process the data
+      csv.on("update-end", function(evt){
+        arrayUtils.forEach(evt.target.graphics, function(graphic){
+          var scent = graphic.attributes["original_Associated Scents"];
+          if (uniqueValueInfos.indexOf(scent) === -1) {
+            uniqueValueInfos.push(scent);
+            // Add unique value info for each scent
+            renderer.addValue({
+              value: scent,
+              symbol: new SimpleMarkerSymbol("solid", 35, null, stringToColor(scent)),
+              label: scent
+            });
+          }
+        });
+        map.addLayer(csv);
+      });
+
+      // Create a UniqueValueRenderer
+      var renderer = new UniqueValueRenderer(null, "original_Associated Scents");
+
+      // Set the renderer to the CSVLayer
+      csv.setRenderer(renderer);
+
+      var template = new InfoTemplate();
+      template.setTitle( "${original_Fermented Food}");
+      template.setContent("<b>Scent's Type:</b><br>${original_Associated Scents}"+
+        "<hr><b>Microbial Profile:</b></hr><br>${original_Microbial Profile}"+
+        "<hr><b>Emotional Landscape:</b><br>${original_Emotional Landscape}"+"<hr><b>Description:</b><br>${original_Description}");
+      csv.setInfoTemplate(template);
+
+      // Add the legend to the map
+
+    });
+  </script>
+</head>
+
+<body>
+  <div id="map"></div>
+</body>
+
